@@ -12,8 +12,9 @@
     <groupId>com.selftech</groupId>
     <artifactId>spring-kafka-infrastructure</artifactId>
     <version>0.0.1-SNAPSHOT</version>
+    <packaging>jar</packaging>
     <name>spring-kafka-infrastructure</name>
-    <description>Enterprise-grade Kafka infrastructure with topic registry, Kafka Connect automation, DLQ management, Outbox pattern, and Avro serialization</description>
+    <description>Enterprise-grade Kafka infrastructure library with topic registry, Kafka Connect automation, DLQ management, Outbox pattern, and Avro serialization</description>
     <properties>
         <java.version>17</java.version>
         <avro.version>1.11.3</avro.version>
@@ -35,6 +36,7 @@
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
+            <optional>true</optional>
         </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
@@ -128,20 +130,15 @@
         </dependency>
     </dependencies>
 
+    <distributionManagement>
+        <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/erhanbarisolmez/spring-kafka-infrastructure</url>
+        </repository>
+    </distributionManagement>
+
     <build>
         <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <configuration>
-                    <excludes>
-                        <exclude>
-                            <groupId>org.projectlombok</groupId>
-                            <artifactId>lombok</artifactId>
-                        </exclude>
-                    </excludes>
-                </configuration>
-            </plugin>
             <plugin>
                 <groupId>org.apache.avro</groupId>
                 <artifactId>avro-maven-plugin</artifactId>

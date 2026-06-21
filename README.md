@@ -212,7 +212,73 @@ src/main/java/com/selftech/kafka/
 - Elasticsearch (optional, for sink connectors)
 - Maven 3.8+
 
-## Getting Started
+## Usage as Library
+
+This project is a **shared Maven library** (not a standalone application). It is published to GitHub Packages and consumed by:
+
+- [kafka-streams-anomaly-detection](https://github.com/erhanbarisolmez/kafka-streams-anomaly-detection) - Anomaly detection engine
+- [iot-device-management-platform](https://github.com/erhanbarisolmez/iot-device-management-platform) - Smart lock management platform
+
+### Service Dependency Diagram
+
+```
+┌──────────────────────────────────┐
+│  spring-kafka-infrastructure     │
+│  (shared Maven library - JAR)    │
+└──────────┬───────────┬───────────┘
+           │           │
+     dependency    dependency
+           │           │
+           ▼           ▼
+┌─────────────────┐  ┌──────────────────────────┐
+│ anomaly-detection│  │ iot-device-management    │
+│ (K8s Pod)        │  │ (K8s Pod)                │
+└─────────────────┘  └──────────────────────────┘
+```
+
+### Add as Dependency
+
+In your `pom.xml`:
+
+```xml
+<repositories>
+    <repository>
+        <id>github-kafka-infra</id>
+        <url>https://maven.pkg.github.com/erhanbarisolmez/spring-kafka-infrastructure</url>
+    </repository>
+</repositories>
+
+<dependency>
+    <groupId>com.selftech</groupId>
+    <artifactId>spring-kafka-infrastructure</artifactId>
+    <version>0.0.1-SNAPSHOT</version>
+</dependency>
+```
+
+Add `scanBasePackages` to your Spring Boot application:
+
+```java
+@SpringBootApplication(scanBasePackages = {"com.selftech.yourapp", "com.selftech.kafka"})
+```
+
+### Register Event Types
+
+Each consuming service registers its own event types with the dynamic `EventTypeRegistry`:
+
+```java
+@Configuration
+@RequiredArgsConstructor
+public class EventTypeRegistrarConfig {
+    private final EventTypeRegistry eventTypeRegistry;
+
+    @PostConstruct
+    public void registerEventTypes() {
+        eventTypeRegistry.register("MyEvent", MyEvent.class);
+    }
+}
+```
+
+### Getting Started
 
 1. **Clone the repository**
    ```bash
@@ -220,23 +286,14 @@ src/main/java/com/selftech/kafka/
    cd spring-kafka-infrastructure
    ```
 
-2. **Configure environment variables**
-   ```bash
-   export KAFKA_BOOTSTRAP_SERVERS=localhost:9092
-   export KAFKA_SCHEMA_REGISTRY_URL=http://localhost:8081
-   export SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/kafka_infrastructure
-   export SPRING_DATASOURCE_USERNAME=postgres
-   export SPRING_DATASOURCE_PASSWORD=postgres
-   ```
-
-3. **Build the project**
+2. **Build and install locally**
    ```bash
    mvn clean install
    ```
 
-4. **Run the application**
+3. **Publish to GitHub Packages** (automated via GitHub Actions on push to `main`)
    ```bash
-   mvn spring-boot:run
+   mvn deploy
    ```
 
 ## Configuration

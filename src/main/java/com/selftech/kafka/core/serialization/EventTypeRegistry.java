@@ -1,124 +1,58 @@
 package com.selftech.kafka.core.serialization;
 
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.avro.specific.SpecificRecord;
 import org.springframework.stereotype.Service;
 
-import com.selftech.selfpark.avro.ParkEntryEvent;
-import com.selftech.selfpark.avro.ParkExitEvent;
-import com.selftech.smartlock.avro.LockBoxEvent;
-import com.selftech.smartlock.avro.LockDeviceEvent;
-import com.selftech.smartlock.avro.PaymentEvent;
-import com.selftech.smartlock.avro.TransactionEvent;
-import com.selftech.smartlock.kafka.events.LockOperationEvent;
-import com.selftech.kafka.models.avro.AnomalyDetectedEvent;
-import com.selftech.kafka.models.avro.SensorDataEvent;
-import com.selftech.kafka.models.avro.SmsEvent;/*  */
-
 /**
- * Event Type Registry - FAZE 4.5 AVRO STANDARDIZATION
+ * Event Type Registry
  *
- * Merkezi registry: Event type string → Avro SpecificRecord class mapping
- *
- * Purpose:
- * 1. Polymorphic deserialization - eventType string'ine göre class bul
- * 2. Type safety - compile-time checked class references
- * 3. Centralized management - Tüm event types bir yerde
- * 4. Easy lookup - O(1) hash lookup performance
+ * Dynamic registry: Event type string → Avro SpecificRecord class mapping.
+ * Each consuming service registers its own event types at startup via
+ * the register() method or Spring @Configuration classes.
  *
  * Usage:
+ *   // Register event types in your service's @Configuration
+ *   @Bean
+ *   public EventTypeRegistrar myEventTypeRegistrar(EventTypeRegistry registry) {
+ *       registry.register("LockBoxEvent", LockBoxEvent.class);
+ *       registry.register("PaymentEvent", PaymentEvent.class);
+ *       return () -> {};
+ *   }
  *
- * // Bulunduğun event type'ını bilerek deserialize et
- * String eventType = "ParkExitEvent";  // Bu info database'den gelir
- * Class<? extends SpecificRecord> clazz = eventTypeRegistry.getEventClass(eventType);
- * // clazz = ParkExitEvent.class
- *
- * ParkExitEvent event = eventSerializationService.deserializeBase64ToAvro(
- *     base64Payload,
- *     clazz  // ← Bulduğumuz class
- * );
- *
- * Event Hierarchy:
- * ├─ SmartLock Events (6)
- * │  ├─ LockBoxEvent
- * │  ├─ LockDeviceEvent
- * │  ├─ LockOperationEvent
- * │  ├─ PaymentEvent
- * │  ├─ TransactionEvent
- * │  └─ (reserved for future)
- * │
- * ├─ SelfPark Events (2)
- * │  ├─ ParkEntryEvent
- * │  └─ ParkExitEvent
- * │
- * ├─ Kafka Core Events (3)
- * │  ├─ AnomalyDetectedEvent
- * │  ├─ SensorDataEvent
- * │  └─ SmsEvent
- * │
- * └─ Total: 11 Avro Event Types
- *
- * @author FAZE 4.5 Implementation
+ *   // Lookup at runtime
+ *   Class<? extends SpecificRecord> clazz = registry.getEventClass("LockBoxEvent");
  */
 @Service
 @Slf4j
 public class EventTypeRegistry {
 
+    private final Map<String, Class<? extends SpecificRecord>> eventTypeMap = new ConcurrentHashMap<>();
+
     /**
-     * Immutable map: Event type name → Avro SpecificRecord class
-     * Compile-time type safety, runtime O(1) lookup
+     * Register an event type mapping
+     *
+     * @param eventTypeName Event type name (e.g., "LockBoxEvent")
+     * @param eventClass Avro SpecificRecord class
      */
-    private static final Map<String, Class<? extends SpecificRecord>> EVENT_TYPE_MAP;
-
-    static {
-        Map<String, Class<? extends SpecificRecord>> map = new HashMap<>();
-
-        // ============ SmartLock Events ============
-        map.put("LockBoxEvent", LockBoxEvent.class);
-        map.put("LockDeviceEvent", LockDeviceEvent.class);
-        map.put("LockOperationEvent", LockOperationEvent.class);
-        map.put("PaymentEvent", PaymentEvent.class);
-        map.put("TransactionEvent", TransactionEvent.class);
-
-        // ============ SelfPark Events ============
-        map.put("ParkEntryEvent", ParkEntryEvent.class);
-        map.put("ParkExitEvent", ParkExitEvent.class);
-
-        // ============ Kafka Core Events (Anomaly Detection, Monitoring) ============
-        map.put("AnomalyDetectedEvent", AnomalyDetectedEvent.class);
-        map.put("SensorDataEvent", SensorDataEvent.class);
-        map.put("SmsEvent", SmsEvent.class);
-
-        // Make immutable for thread safety
-        EVENT_TYPE_MAP = Collections.unmodifiableMap(map);
-
-        log.info("EventTypeRegistry initialized with {} event types", EVENT_TYPE_MAP.size());
-        log.debug("Registered event types: {}", EVENT_TYPE_MAP.keySet());
+    public void register(String eventTypeName, Class<? extends SpecificRecord> eventClass) {
+        if (eventTypeName == null || eventClass == null) {
+            log.warn("Cannot register null event type name or class");
+            return;
+        }
+        eventTypeMap.put(eventTypeName, eventClass);
+        log.info("Registered event type: {} → {}", eventTypeName, eventClass.getName());
     }
 
     /**
      * Get Avro class for a given event type name
      *
-     * Used for polymorphic deserialization:
-     * 1. Database'den eventType string'ini al
-     * 2. registry.getEventClass(eventType) ile class bul
-     * 3. EventSerializationService ile typed deserialization yap
-     *
      * @param eventTypeName Event type string (e.g., "ParkExitEvent", "LockBoxEvent")
      * @return Avro SpecificRecord class, or null if not found
-     *
-     * Example:
-     * Class<? extends SpecificRecord> clazz = registry.getEventClass("ParkExitEvent");
-     * // clazz = ParkExitEvent.class
-     *
-     * if (clazz == null) {
-     *     log.warn("Unknown event type: {}", eventTypeName);
-     *     return null;
-     * }
      */
     public Class<? extends SpecificRecord> getEventClass(String eventTypeName) {
         if (eventTypeName == null || eventTypeName.isEmpty()) {
@@ -126,11 +60,11 @@ public class EventTypeRegistry {
             return null;
         }
 
-        Class<? extends SpecificRecord> clazz = EVENT_TYPE_MAP.get(eventTypeName);
+        Class<? extends SpecificRecord> clazz = eventTypeMap.get(eventTypeName);
 
         if (clazz == null) {
             log.warn("Unknown event type: {} - registered types: {}",
-                    eventTypeName, EVENT_TYPE_MAP.keySet());
+                    eventTypeName, eventTypeMap.keySet());
             return null;
         }
 
@@ -140,36 +74,27 @@ public class EventTypeRegistry {
 
     /**
      * Check if event type is registered
-     *
-     * @param eventTypeName Event type string
-     * @return true if registered, false otherwise
      */
     public boolean isEventTypeRegistered(String eventTypeName) {
-        return EVENT_TYPE_MAP.containsKey(eventTypeName);
+        return eventTypeMap.containsKey(eventTypeName);
     }
 
     /**
      * Get all registered event type names
-     *
-     * Useful for logging, validation, statistics
-     *
-     * @return Unmodifiable set of event type names
      */
     public Set<String> getRegisteredEventTypes() {
-        return EVENT_TYPE_MAP.keySet();
+        return Collections.unmodifiableSet(eventTypeMap.keySet());
     }
 
     /**
      * Get total count of registered event types
-     *
-     * @return Number of event types
      */
     public int getEventTypeCount() {
-        return EVENT_TYPE_MAP.size();
+        return eventTypeMap.size();
     }
 
     /**
-     * Log registry status (for debugging)
+     * Log registry status
      */
     public void logStatus() {
         log.info("=== Event Type Registry Status ===");
@@ -180,16 +105,12 @@ public class EventTypeRegistry {
 
     /**
      * Get human-readable information about an event type
-     *
-     * @param eventTypeName Event type string
-     * @return Info string or null if not found
      */
     public String getEventTypeInfo(String eventTypeName) {
         Class<? extends SpecificRecord> clazz = getEventClass(eventTypeName);
         if (clazz == null) {
             return null;
         }
-
         return String.format(
                 "EventType: %s, FullyQualifiedName: %s, CanonicalName: %s",
                 eventTypeName, clazz.getName(), clazz.getCanonicalName()
