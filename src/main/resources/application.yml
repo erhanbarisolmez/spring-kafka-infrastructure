@@ -1,0 +1,97 @@
+spring:
+  application:
+    name: spring-kafka-infrastructure
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/kafka_infrastructure}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    properties:
+      schema.registry.url: ${KAFKA_SCHEMA_REGISTRY_URL:http://localhost:8081}
+    producer:
+      acks: 1
+      retries: 5
+      properties:
+        schema.registry.url: ${KAFKA_SCHEMA_REGISTRY_URL:http://localhost:8081}
+        enable.idempotence: "true"
+        linger.ms: "10"
+        batch.size: "32768"
+        compression.type: snappy
+    consumer:
+      group-id: kafka-infrastructure-group
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      max-poll-records: 500
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: io.confluent.kafka.serializers.KafkaAvroDeserializer
+      properties:
+        schema.registry.url: ${KAFKA_SCHEMA_REGISTRY_URL:http://localhost:8081}
+        specific.avro.reader: true
+
+# Topic Registry
+app:
+  kafka:
+    default-partitions: ${KAFKA_DEFAULT_PARTITIONS:1}
+    default-replication-factor: ${KAFKA_DEFAULT_REPLICATION_FACTOR:1}
+    topics:
+      # Example topic definitions - configure per deployment
+      sample-event:
+        name: sample.event.v0
+        category: EVENT
+        retention-days: 30
+    connect:
+      url: ${KAFKA_CONNECT_URL:http://kafka-connect:8083}
+      connection-timeout: 5000
+      read-timeout: 30000
+      max-retries: 3
+      retry-backoff-ms: 1000
+      health-check:
+        enabled: true
+        startup-delay-seconds: 60
+        max-wait-seconds: 300
+        poll-interval-seconds: 5
+      elasticsearch:
+        enabled: ${ELASTICSEARCH_CONNECTOR_ENABLED:false}
+        defaults:
+          tasks-max: 1
+          flush-size: 1000
+          schema-ignore: true
+          connection-url: ${ELASTICSEARCH_URL:http://elasticsearch:9200}
+          connection-username: ${ELASTICSEARCH_USERNAME:elastic}
+          connection-password: ${ELASTICSEARCH_PASSWORD:changeme}
+        auto-bind:
+          categories:
+            ANOMALY: elasticsearch
+            ALERT: elasticsearch
+
+# Monitoring
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,metrics,prometheus
+  endpoint:
+    health:
+      show-details: always
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    tags:
+      application: spring-kafka-infrastructure
+
+logging:
+  level:
+    root: INFO
+    org.apache.kafka: WARN
+    com.selftech.kafka: DEBUG
