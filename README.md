@@ -1,5 +1,12 @@
 # Spring Kafka Infrastructure
 
+![Java](https://img.shields.io/badge/Java-17-orange?logo=openjdk)
+![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.3-brightgreen?logo=springboot)
+![Apache Kafka](https://img.shields.io/badge/Apache%20Kafka-3.6-231F20?logo=apachekafka)
+![Avro](https://img.shields.io/badge/Avro-1.11-blue)
+![GitHub last commit](https://img.shields.io/github/last-commit/erhanbarisolmez/spring-kafka-infrastructure)
+![GitHub repo size](https://img.shields.io/github/repo-size/erhanbarisolmez/spring-kafka-infrastructure)
+
 Enterprise-grade Apache Kafka infrastructure library for Spring Boot applications. Provides a centralized topic registry, automated Kafka Connect management, Dead Letter Queue (DLQ) handling, Transactional Outbox pattern, and Avro-based event serialization with Confluent Schema Registry.
 
 ## Architecture
